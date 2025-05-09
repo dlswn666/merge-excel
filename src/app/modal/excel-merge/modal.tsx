@@ -15,16 +15,16 @@ import {
     IconButton,
     Alert,
     Paper,
+    ClickAwayListener,
+    Tooltip,
 } from '@mui/material';
 import { ColDef, GridOptions } from 'ag-grid-community';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CustomAgGrid from '@/components/grid/agGrid';
 import * as XLSX from 'xlsx';
 import CloseIcon from '@mui/icons-material/Close';
-import WarningIcon from '@mui/icons-material/Warning';
 import { AlertModal, ConfirmModal } from '@/app/modal/common';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import Page from '@/app/excel-merge/page';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 interface ExcelMergeModalProps {
     open: boolean;
@@ -43,7 +43,8 @@ const modalStyle = {
     left: '50%',
     transform: 'translate(-50%, -50%)',
     width: '80%',
-    height: '95%',
+    height: 'calc(100% - 40px)',
+    maxHeight: '95vh',
     bgcolor: 'background.paper',
     border: '1px solid #e0e0e0',
     outline: 'none',
@@ -52,23 +53,7 @@ const modalStyle = {
     flexDirection: 'column',
     gap: 3,
     borderRadius: '8px',
-    overflow: 'hidden',
-};
-
-const closeButtonStyle = {
-    position: 'absolute',
-    bottom: 20,
-    right: 30,
-    width: 100,
-    height: 40,
-};
-
-const excelUploadButtonStyle = {
-    width: 'auto',
-    height: 40,
-    position: 'absolute',
-    top: 20,
-    right: 30,
+    overflow: 'auto',
 };
 
 const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
@@ -129,6 +114,11 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
     // 성공 모달 상태 추가
     const [successModalOpen, setSuccessModalOpen] = useState<boolean>(false);
 
+    // 미리보기 상태 추가
+    const [showPreview, setShowPreview] = useState<boolean>(false);
+    const [previewData, setPreviewData] = useState<any[]>([]);
+    const [previewColumnDefs, setPreviewColumnDefs] = useState<ColDef[]>([]);
+
     // 컴포넌트가 마운트되거나 excelData가 변경될 때 데이터 처리
     useEffect(() => {
         if (excelData && excelData.length > 0) {
@@ -136,8 +126,6 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
             processExcelData(excelData);
             setSelectedRowData(Object.keys(excelData[0]));
             setConvertedData(convertSelectedRowData(excelData, -1));
-            console.log('selectedRowData', selectedRowData);
-            console.log('excelData', excelData);
         }
 
         if (regularExcelForm && regularExcelForm.length > 0) {
@@ -307,7 +295,7 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
 
     // Select 값 변경 핸들러 추가
     const handleSelectChange = (header: string, value: string) => {
-        console.log(header, value);
+        console.log('선택 변경:', header, value);
         setSelectedValues((prev) => ({
             ...prev,
             [header]: value,
@@ -426,34 +414,183 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
         );
     };
 
+    // 모든 셀렉트박스가 선택되었는지 확인하는 함수 추가
+    const allSelectsAreFilled = () => {
+        if (!regularExcelForm || regularExcelForm.length === 0) return false;
+
+        // 모든 셀렉트박스가 값을 가지고 있는지 확인
+        return regularExcelForm.every(
+            (form) => selectedValues[form.header] && selectedValues[form.header].trim() !== ''
+        );
+    };
+
+    // 셀렉트박스 초기화 함수 추가
+    const handleResetValues = () => {
+        // 선택된 값 초기화
+        setSelectedValues({});
+
+        // 매칭된 헤더 데이터의 value 값도 초기화
+        setMatchedHeaderData(
+            matchedHeaderData.map((item) => ({
+                ...item,
+                value: '', // 빈 값으로 초기화
+            }))
+        );
+
+        // 미리보기 관련 데이터 초기화
+        setShowPreview(false);
+        setPreviewData([]);
+        setPreviewColumnDefs([]);
+    };
+
+    // 미리보기 버튼 클릭 핸들러
+    const handlePreview = () => {
+        // 미리보기 상태 토글
+        setShowPreview(true);
+
+        // 디버깅용 - 모든 관련 데이터 출력
+        console.log('matchedHeaderData:', matchedHeaderData);
+        console.log('selectedValues:', selectedValues);
+        console.log('convertedData 첫 번째 행:', convertedData.length > 0 ? convertedData[0] : 'No data');
+
+        // ColDef 배열 생성 - No 칼럼 추가
+        const colDefs: ColDef[] = [
+            {
+                field: 'no',
+                headerName: 'No',
+                sortable: false,
+                filter: false,
+                resizable: true,
+                flex: 1,
+                cellStyle: { textAlign: 'center' },
+                valueGetter: (params) => (params.node?.rowIndex ? params.node.rowIndex + 1 : 1),
+            },
+            ...regularExcelForm.map((form) => {
+                return {
+                    field: form.header,
+                    headerName: form.header,
+                    sortable: true,
+                    filter: true,
+                    resizable: true,
+                    flex: 1,
+                    cellStyle: { textAlign: 'center' }, // justifyContent를 textAlign으로 변경
+                };
+            }),
+        ];
+
+        setPreviewColumnDefs(colDefs);
+
+        // 데이터 변환
+        const previewRows: any[] = [];
+
+        if (convertedData.length > 0) {
+            convertedData.forEach((row, index) => {
+                const newRow: Record<string, any> = {
+                    no: index + 1, // 번호 추가
+                };
+
+                // 매핑 로직 변경: matchedHeaderData 대신 selectedValues를 직접 사용
+                regularExcelForm.forEach((form) => {
+                    const headerName = form.header; // 예: '충전기 ID'
+                    const selectedField = selectedValues[headerName]; // 선택된 필드명
+
+                    console.log(
+                        `매핑 확인 - 헤더: ${headerName}, 선택값: ${selectedField}, 데이터:`,
+                        selectedField ? row[selectedField] : 'undefined'
+                    );
+
+                    if (selectedField && row[selectedField] !== undefined) {
+                        newRow[headerName] = row[selectedField];
+                    } else {
+                        newRow[headerName] = '';
+                    }
+                });
+
+                console.log('생성된 행:', newRow);
+                previewRows.push(newRow);
+            });
+        }
+
+        console.log('최종 미리보기 데이터:', previewRows);
+        setPreviewData(previewRows);
+    };
+
     return (
         <>
             <Modal open={open} onClose={onClose}>
                 <Box sx={modalStyle}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                            수동 정렬하기
-                        </Typography>
-                        <IconButton
-                            aria-label="close"
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'flex-end',
+                            justifyContent: 'flex-end',
+                            gap: 2,
+                            minHeight: 50,
+                        }}
+                    >
+                        <Button
                             onClick={onClose}
+                            sx={{ bgcolor: '#fff', color: '#000', boxShadow: 'none', border: '1px solid #CFD2D5' }}
+                        >
+                            닫기
+                        </Button>
+                        <Button
+                            onClick={handleExcelFormModify}
+                            disabled={isTransformed}
                             sx={{
-                                color: (theme) => theme.palette.grey[500],
+                                bgcolor: '#A1D8B8',
+                                color: '#22675F',
+                                boxShadow: 'none',
+                                border: '1px solid #CFD2D5',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                    background: '#8bc9a6',
+                                    color: '#22675F',
+                                    boxShadow: 'none',
+                                    border: '1px solid #CFD2D5',
                                 },
                             }}
                         >
-                            <CloseIcon />
-                        </IconButton>
+                            엑셀 폼 수정
+                        </Button>
                     </Box>
-                    <Paper sx={{ p: 3, border: '1px solid #E5E7EB', boxShadow: 'none' }}>
+                    <Divider />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                            수동 정렬하기
+                        </Typography>
+                        <Tooltip
+                            title={
+                                <Typography sx={{ color: '#074B33', fontSize: 14 }}>
+                                    지원이 되지 않는 엑셀 양식을 직접 맞춰 총합 정산할 수 있어요
+                                </Typography>
+                            }
+                            placement="right"
+                            arrow
+                            componentsProps={{
+                                tooltip: {
+                                    sx: {
+                                        bgcolor: '#A1D8B8',
+                                        '& .MuiTooltip-arrow': {
+                                            color: '#A1D8B8',
+                                        },
+                                        maxWidth: 300,
+                                        p: 1.5,
+                                    },
+                                },
+                            }}
+                        >
+                            <IconButton size="small" sx={{ p: 0 }}>
+                                <HelpOutlineIcon fontSize="small" sx={{ color: '#41505D' }} />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                    {/* <Paper sx={{ p: 3, border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" sx={{ color: '#41505D' }}>
                                 지원이 되지 않는 엑셀 양식을 직접 맞춰 통합 정산할 수 있어요
                             </Typography>
                         </Box>
-                    </Paper>
+                    </Paper> */}
 
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, width: '100%' }}>
                         <Box
@@ -469,18 +606,51 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
                                 <Typography variant="body2" sx={{ color: '#41505D', fontWeight: 700, fontSize: 18 }}>
                                     업로드 엑셀
                                 </Typography>
+                                <Typography variant="body2" sx={{ color: '#41505D', fontWeight: 600, fontSize: 16 }}>
+                                    파일명 : {fileName}
+                                </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <Typography variant="body2" sx={{ color: '#41505D', fontWeight: 600, fontSize: 16 }}>
                                     Header 행 선택
                                 </Typography>
                                 <FormControl size="small" sx={{ minWidth: 150 }}>
-                                    <InputLabel id="row-select-label">행 선택</InputLabel>
                                     <Select
                                         labelId="row-select-label"
-                                        label="행 선택"
+                                        displayEmpty
                                         onChange={handleRowSelect}
                                         defaultValue={-1}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderColor: '#1976d2',
+                                            },
+                                            height: '32px',
+                                            '& .MuiMenuItem-root': {
+                                                '&:hover': {
+                                                    backgroundColor: '#6ED8AF',
+                                                    color: '#fff',
+                                                },
+                                                textAlign: 'center',
+                                                justifyContent: 'center',
+                                            },
+                                            '& .MuiSelect-select': {
+                                                textAlign: 'center',
+                                            },
+                                        }}
+                                        MenuProps={{
+                                            PaperProps: {
+                                                sx: {
+                                                    '& .MuiMenuItem-root': {
+                                                        '&:hover': {
+                                                            backgroundColor: '#6ED8AF',
+                                                            color: '#fff',
+                                                        },
+                                                        textAlign: 'center',
+                                                        justifyContent: 'center',
+                                                    },
+                                                },
+                                            },
+                                        }}
                                     >
                                         <MenuItem value={-1}>
                                             <em>최초 행 사용</em>
@@ -498,138 +668,191 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
                             </Box>
                         </Box>
                     </Box>
-
-                    <Box sx={{ flex: 1, overflow: 'hidden', width: '100%' }}>
+                    <Box sx={{ width: '100%', height: '300px' }}>
                         <CustomAgGrid
                             rowData={gridRowData}
                             columnDefs={gridColumnDefs}
-                            height={'100%'}
+                            height={'300px'}
                             gridOptions={{ ...gridOptions, alwaysShowHorizontalScroll: true }}
                         />
                     </Box>
                     <Divider sx={{ my: 1 }} />
-                    <Box sx={{ flex: 1, overflow: 'hidden', width: '100%', overflowY: 'auto', scrollbarWidth: 'thin' }}>
-                        {regularExcelForm && regularExcelForm.length > 0 ? (
-                            <Box
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                        <Typography variant="body2" sx={{ color: '#41505D', fontWeight: 600, fontSize: 20 }}>
+                            정렬하기
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Button
+                                onClick={handleResetValues}
                                 sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: 2,
-                                    p: 2,
+                                    bgcolor: '#fff',
+                                    color: '#41505D',
+                                    boxShadow: 'none',
+                                    border: '1px solid #CFD2D5',
                                 }}
                             >
-                                {regularExcelForm.map((form) => (
-                                    <Box
-                                        key={form.header}
-                                        sx={{ display: 'flex', alignItems: 'center', flexDirection: 'column', gap: 2 }}
-                                    >
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ color: '#41505D', width: '100px', fontWeight: 600, fontSize: 16 }}
-                                        >
-                                            {form.header}
-                                        </Typography>
-                                        <FormControl
+                                초기화
+                            </Button>
+                            <Button
+                                onClick={handlePreview}
+                                disabled={!allSelectsAreFilled()}
+                                sx={{
+                                    bgcolor: '#fff',
+                                    color: '#41505D',
+                                    boxShadow: 'none',
+                                    border: '1px solid #CFD2D5',
+                                    opacity: allSelectsAreFilled() ? 1 : 0.5,
+                                }}
+                            >
+                                미리보기
+                            </Button>
+                        </Box>
+                    </Box>
+                    <Box sx={{ width: '100%', overflowY: 'auto', scrollbarWidth: 'thin', minHeight: '400px', mb: 3 }}>
+                        {regularExcelForm && regularExcelForm.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        width: '100%',
+                                        gap: 2,
+                                        p: 2,
+                                        justifyContent: 'space-between',
+                                    }}
+                                >
+                                    {regularExcelForm.map((form) => (
+                                        <Box
+                                            key={form.header}
                                             sx={{
-                                                m: 1,
-                                                minWidth: 200,
-                                                // 선택된 항목이 있는 경우 박스 주변에 강조 표시
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderColor: selectedValues[form.header] ? '#1976d2' : 'inherit',
-                                                    boxShadow: selectedValues[form.header]
-                                                        ? '0 0 0 2px rgba(25, 118, 210, 0.1)'
-                                                        : 'none',
-                                                    '&.Mui-focused': {
-                                                        borderColor: '#1976d2',
-                                                    },
-                                                },
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                gap: 2,
                                             }}
                                         >
-                                            <Select
-                                                value={selectedValues[form.header] || ''}
-                                                onChange={(e) => handleSelectChange(form.header, e.target.value)}
-                                                displayEmpty
+                                            <Typography
+                                                variant="body2"
                                                 sx={{
-                                                    // 선택 여부에 따라 테두리 색상 변경
-                                                    '& .MuiOutlinedInput-notchedOutline': {
+                                                    color: '#41505D',
+                                                    width: '100px',
+                                                    fontWeight: 600,
+                                                    fontSize: 16,
+                                                    textAlign: 'center',
+                                                }}
+                                            >
+                                                {form.header}
+                                            </Typography>
+                                            <FormControl
+                                                sx={{
+                                                    m: 1,
+                                                    minWidth: 150,
+                                                    // 선택된 항목이 있는 경우 박스 주변에 강조 표시
+                                                    '& .MuiOutlinedInput-root': {
                                                         borderColor: selectedValues[form.header]
                                                             ? '#1976d2'
-                                                            : '#0e0f0f',
-                                                    },
-                                                    // 선택된 경우 배경색 살짝 변경
-                                                    backgroundColor: selectedValues[form.header]
-                                                        ? 'rgba(25, 118, 210, 0.05)'
-                                                        : 'transparent',
-                                                    '& .MuiMenuItem-root': {
-                                                        '&:hover': {
-                                                            backgroundColor: '#6ED8AF',
-                                                            color: '#fff',
-                                                        },
-                                                        textAlign: 'center',
-                                                        justifyContent: 'center',
-                                                    },
-                                                    '& .MuiSelect-select': {
-                                                        textAlign: 'center',
-                                                    },
-                                                }}
-                                                MenuProps={{
-                                                    PaperProps: {
-                                                        sx: {
-                                                            '& .MuiMenuItem-root': {
-                                                                '&:hover': {
-                                                                    backgroundColor: '#6ED8AF',
-                                                                    color: '#fff',
-                                                                },
-                                                                textAlign: 'center',
-                                                                justifyContent: 'center',
-                                                            },
+                                                            : 'inherit',
+                                                        boxShadow: selectedValues[form.header]
+                                                            ? '0 0 0 2px rgba(25, 118, 210, 0.1)'
+                                                            : 'none',
+                                                        '&.Mui-focused': {
+                                                            borderColor: '#1976d2',
                                                         },
                                                     },
                                                 }}
                                             >
-                                                <MenuItem value="">선택하기</MenuItem>
-                                                {selectedRowData && selectedRowData.length > 0 ? (
-                                                    selectedRowData
-                                                        .filter((option: string) => {
-                                                            return (
-                                                                option === selectedValues[form.header] ||
-                                                                !Object.values(selectedValues).includes(option)
-                                                            );
-                                                        })
-                                                        .map((option: string, index: number) => (
-                                                            <MenuItem key={`${option}-${index}`} value={option}>
-                                                                {option}
-                                                            </MenuItem>
-                                                        ))
-                                                ) : (
-                                                    <MenuItem value="">데이터 없음</MenuItem>
-                                                )}
-                                            </Select>
-                                        </FormControl>
+                                                <Select
+                                                    value={selectedValues[form.header] || ''}
+                                                    onChange={(e) => handleSelectChange(form.header, e.target.value)}
+                                                    displayEmpty
+                                                    sx={{
+                                                        height: '32px',
+                                                        // 선택 여부에 따라 테두리 색상 변경
+                                                        '& .MuiOutlinedInput-notchedOutline': {
+                                                            borderColor: selectedValues[form.header]
+                                                                ? '#1976d2'
+                                                                : '#0e0f0f',
+                                                        },
+                                                        // 선택된 경우 배경색 살짝 변경
+                                                        backgroundColor: selectedValues[form.header]
+                                                            ? 'rgba(25, 118, 210, 0.05)'
+                                                            : 'transparent',
+                                                        '& .MuiMenuItem-root': {
+                                                            '&:hover': {
+                                                                backgroundColor: '#6ED8AF',
+                                                                color: '#fff',
+                                                            },
+                                                            textAlign: 'center',
+                                                            justifyContent: 'center',
+                                                        },
+                                                        '& .MuiSelect-select': {
+                                                            textAlign: 'center',
+                                                        },
+                                                    }}
+                                                    MenuProps={{
+                                                        PaperProps: {
+                                                            sx: {
+                                                                '& .MuiMenuItem-root': {
+                                                                    '&:hover': {
+                                                                        backgroundColor: '#6ED8AF',
+                                                                        color: '#fff',
+                                                                    },
+                                                                    textAlign: 'center',
+                                                                    justifyContent: 'center',
+                                                                },
+                                                            },
+                                                        },
+                                                    }}
+                                                >
+                                                    <MenuItem value="">선택하기</MenuItem>
+                                                    {selectedRowData && selectedRowData.length > 0 ? (
+                                                        selectedRowData
+                                                            .filter((option: string) => {
+                                                                return (
+                                                                    option === selectedValues[form.header] ||
+                                                                    !Object.values(selectedValues).includes(option)
+                                                                );
+                                                            })
+                                                            .map((option: string, index: number) => (
+                                                                <MenuItem key={`${option}-${index}`} value={option}>
+                                                                    {option}
+                                                                </MenuItem>
+                                                            ))
+                                                    ) : (
+                                                        <MenuItem value="">데이터 없음</MenuItem>
+                                                    )}
+                                                </Select>
+                                            </FormControl>
+                                        </Box>
+                                    ))}
+                                </Box>
+                                {showPreview && previewData.length > 0 && (
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            width: '100%',
+                                            height: '300px',
+                                        }}
+                                    >
+                                        <CustomAgGrid
+                                            rowData={previewData}
+                                            columnDefs={previewColumnDefs}
+                                            height={'100%'}
+                                            gridOptions={{
+                                                ...gridOptions,
+                                                headerHeight: 40, // 헤더 높이 조정
+                                                getRowHeight: () => 40, // 행 높이 조정
+                                            }}
+                                        />
                                     </Box>
-                                ))}
+                                )}
                             </Box>
                         ) : (
                             <Typography variant="body2" sx={{ color: '#666666', p: 2 }}>
                                 사용 가능한 정규 헤더 데이터가 없습니다.
                             </Typography>
-                        )}
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
-                        {isTransformed ? (
-                            <Button variant="outlined" color="primary" onClick={handleResetTransform}>
-                                다시 설정하기
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleExcelFormModify}
-                                disabled={isTransformed}
-                            >
-                                엑셀 폼 수정
-                            </Button>
                         )}
                     </Box>
                 </Box>

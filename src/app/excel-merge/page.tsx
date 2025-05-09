@@ -203,7 +203,11 @@ function normalizeExcelData(excelDataList: ExcelData[]): any[] {
         });
     });
 
-    return normalizedRows;
+    // 행 번호(No) 추가
+    return normalizedRows.map((row, index) => ({
+        No: index + 1,
+        ...row,
+    }));
 }
 
 /**
@@ -293,6 +297,13 @@ const ExcelMerge = () => {
     const [selectedFileName, setSelectedFileName] = useState<string>('');
     // 컬럼 정의
     const columnDefs: ColDef[] = [
+        {
+            field: 'No',
+            headerName: 'No',
+            flex: 1,
+            sort: 'asc',
+            cellStyle: { justifyContent: 'center' },
+        },
         {
             field: 'id',
             headerName: '충전기ID',
@@ -645,6 +656,7 @@ const ExcelMerge = () => {
 
             // AG Grid 데이터 업데이트
             const gridData = normalized.map((item, index) => ({
+                No: index + 1,
                 id: item['충전기ID'] || `Row-${index + 1}`,
                 chargingStartTime: item['충전시작'] || '',
                 chargingEndTime: item['충전종료'] || '',
@@ -686,7 +698,7 @@ const ExcelMerge = () => {
     const sortDataByChargingStartTime = (data: RowData[]): RowData[] => {
         if (!data || data.length === 0) return [];
 
-        return [...data].sort((a, b) => {
+        const sortedData = [...data].sort((a, b) => {
             const dateA = new Date(a.chargingStartTime || '');
             const dateB = new Date(b.chargingStartTime || '');
 
@@ -701,6 +713,12 @@ const ExcelMerge = () => {
             // 오름차순 정렬 (오래된 날짜가 먼저)
             return dateA.getTime() - dateB.getTime();
         });
+
+        // 정렬 후 행 번호 다시 설정
+        return sortedData.map((row, index) => ({
+            ...row,
+            No: index + 1,
+        }));
     };
 
     const handleClearFilter = () => {
@@ -960,7 +978,7 @@ const ExcelMerge = () => {
                                     e?.stopPropagation();
                                     e?.preventDefault();
                                 }}
-                                placement="right"
+                                placement="right-start"
                                 disableFocusListener
                                 disableHoverListener
                                 disableTouchListener
@@ -972,14 +990,20 @@ const ExcelMerge = () => {
                                             p: 0,
                                             borderRadius: '16px',
                                             boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+                                            marginTop: '-85px',
                                             '& .MuiTooltip-arrow': {
                                                 color: '#A1D8B8',
+                                                top: '10% !important',
+                                                left: '0 !important',
                                             },
                                         },
                                     },
                                     arrow: {
                                         sx: {
                                             color: '#A1D8B8',
+                                            position: 'absolute',
+                                            top: '20%',
+                                            left: 0,
                                         },
                                     },
                                 }}
@@ -1188,10 +1212,10 @@ const ExcelMerge = () => {
                         />
                         <UploadFileIcon sx={{ fontSize: 40, color: '#9CA3AF', mb: 1, display: 'inline' }} />
                         <Typography sx={{ color: '#4B5563', mb: 0.5, display: 'inline', ml: 1 }}>
-                            정부할 파일을 마우스로 끌어 놓으세요.
+                            정리할 파일을 마우스로 끌어 놓으세요.
                         </Typography>
                         <Typography sx={{ color: '#9CA3AF', fontSize: '14px', display: 'block' }}>
-                            또는 파일을 클릭하여 선택하세요.
+                            또는 박스를 클릭하여 파일을 선택하세요.
                         </Typography>
                     </Box>
                 </Paper>
@@ -1414,7 +1438,7 @@ const ExcelMerge = () => {
                             fontWeight: 500,
                         }}
                     >
-                        데이터 목록 ({filteredRowData.length}개)
+                        데이터 목록 ( Total : {filteredRowData.length} )
                     </Typography>
                 </Box>
 

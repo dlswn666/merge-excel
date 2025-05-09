@@ -93,7 +93,7 @@ export default function Login() {
                     // 로그인 정보 저장
                     saveLoginInfo(userId, password, rememberMe);
 
-                    router.push('/home');
+                    router.push('/excel-merge');
                 }
             } else {
                 setIsLoginError(true);
@@ -270,8 +270,10 @@ export default function Login() {
                             color: '#fff',
                             fontSize: '16px',
                             fontWeight: 500,
+                            boxShadow: 'none',
                             '&:hover': {
                                 backgroundColor: '#90C9A7',
+                                boxShadow: 'none',
                             },
                         }}
                     >

@@ -15,7 +15,7 @@ export default function RootPage() {
 
         // 로그인 상태에 따라 즉시 리디렉션
         if (isAuthenticated) {
-            router.replace('/home');
+            router.replace('/excel-merge');
         } else {
             router.replace('/login');
         }
