@@ -51,7 +51,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     sx={{
                         flexGrow: 1,
                         width: mounted && isLoggedIn && !isLoginPage ? { sm: `calc(100% - 240px)` } : '100%',
-                        ml: mounted && isLoggedIn && !isLoginPage ? { sm: '5px' } : 0,
+                        mr: mounted && isLoggedIn && !isLoginPage ? { sm: '200px' } : 0,
                         mt: mounted && isLoggedIn && !isLoginPage ? '100px' : 0,
                     }}
                 >

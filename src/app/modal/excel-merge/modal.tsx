@@ -711,110 +711,73 @@ const ExcelMergeModal: React.FC<ExcelMergeModalProps> = ({
                     <Box sx={{ width: '100%', overflowY: 'auto', scrollbarWidth: 'thin', minHeight: '400px', mb: 3 }}>
                         {regularExcelForm && regularExcelForm.length > 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {/* 헤더 라인 */}
                                 <Box
                                     sx={{
                                         display: 'flex',
                                         width: '100%',
-                                        gap: 2,
-                                        p: 2,
-                                        justifyContent: 'space-between',
+                                        backgroundColor: '#F8F8FB',
+                                        borderRadius: '8px 8px 0 0',
+                                        borderBottom: 'none',
+                                        overflow: 'hidden',
                                     }}
                                 >
                                     {regularExcelForm.map((form) => (
                                         <Box
                                             key={form.header}
                                             sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                gap: 2,
+                                                flex: 1,
+                                                textAlign: 'center',
+                                                fontWeight: 600,
+                                                fontSize: 16,
+                                                color: '#41505D',
+                                                py: 2,
+                                                borderRight: '1px solid #E5E7EB',
+                                                '&:last-of-type': { borderRight: 'none' },
                                             }}
                                         >
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    color: '#41505D',
-                                                    width: '100px',
-                                                    fontWeight: 600,
-                                                    fontSize: 16,
-                                                    textAlign: 'center',
-                                                }}
-                                            >
-                                                {form.header}
-                                            </Typography>
-                                            <FormControl
-                                                sx={{
-                                                    m: 1,
-                                                    minWidth: 150,
-                                                    // 선택된 항목이 있는 경우 박스 주변에 강조 표시
-                                                    '& .MuiOutlinedInput-root': {
-                                                        borderColor: selectedValues[form.header]
-                                                            ? '#1976d2'
-                                                            : 'inherit',
-                                                        boxShadow: selectedValues[form.header]
-                                                            ? '0 0 0 2px rgba(25, 118, 210, 0.1)'
-                                                            : 'none',
-                                                        '&.Mui-focused': {
-                                                            borderColor: '#1976d2',
-                                                        },
-                                                    },
-                                                }}
-                                            >
+                                            {form.header}
+                                        </Box>
+                                    ))}
+                                </Box>
+                                {/* 셀렉트 라인 */}
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        width: '100%',
+                                        borderTop: 'none',
+                                        borderRadius: '0 0 8px 8px',
+                                        overflow: 'hidden',
+                                        mb: 2,
+                                    }}
+                                >
+                                    {regularExcelForm.map((form) => (
+                                        <Box
+                                            key={form.header}
+                                            sx={{
+                                                flex: 1,
+                                                textAlign: 'center',
+                                                p: 1,
+                                                borderRight: '1px solid #E5E7EB',
+                                                '&:last-of-type': { borderRight: 'none' },
+                                            }}
+                                        >
+                                            <FormControl size="small" sx={{ minWidth: 120, width: '90%' }}>
                                                 <Select
                                                     value={selectedValues[form.header] || ''}
                                                     onChange={(e) => handleSelectChange(form.header, e.target.value)}
                                                     displayEmpty
-                                                    sx={{
-                                                        height: '32px',
-                                                        // 선택 여부에 따라 테두리 색상 변경
-                                                        '& .MuiOutlinedInput-notchedOutline': {
-                                                            borderColor: selectedValues[form.header]
-                                                                ? '#1976d2'
-                                                                : '#0e0f0f',
-                                                        },
-                                                        // 선택된 경우 배경색 살짝 변경
-                                                        backgroundColor: selectedValues[form.header]
-                                                            ? 'rgba(25, 118, 210, 0.05)'
-                                                            : 'transparent',
-                                                        '& .MuiMenuItem-root': {
-                                                            '&:hover': {
-                                                                backgroundColor: '#6ED8AF',
-                                                                color: '#fff',
-                                                            },
-                                                            textAlign: 'center',
-                                                            justifyContent: 'center',
-                                                        },
-                                                        '& .MuiSelect-select': {
-                                                            textAlign: 'center',
-                                                        },
-                                                    }}
-                                                    MenuProps={{
-                                                        PaperProps: {
-                                                            sx: {
-                                                                '& .MuiMenuItem-root': {
-                                                                    '&:hover': {
-                                                                        backgroundColor: '#6ED8AF',
-                                                                        color: '#fff',
-                                                                    },
-                                                                    textAlign: 'center',
-                                                                    justifyContent: 'center',
-                                                                },
-                                                            },
-                                                        },
-                                                    }}
                                                 >
                                                     <MenuItem value="">선택하기</MenuItem>
                                                     {selectedRowData && selectedRowData.length > 0 ? (
                                                         selectedRowData
-                                                            .filter((option: string) => {
-                                                                return (
+                                                            .filter(
+                                                                (option: string) =>
                                                                     option === selectedValues[form.header] ||
                                                                     !Object.values(selectedValues).includes(option)
-                                                                );
-                                                            })
-                                                            .map((option: string, index: number) => (
-                                                                <MenuItem key={`${option}-${index}`} value={option}>
+                                                            )
+                                                            .map((option: string, idx: number) => (
+                                                                <MenuItem key={option + idx} value={option}>
                                                                     {option}
                                                                 </MenuItem>
                                                             ))

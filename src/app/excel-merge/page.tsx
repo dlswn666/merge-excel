@@ -392,28 +392,6 @@ const ExcelMerge = () => {
         setFiles((prev) => prev.map((file) => (file.id === id ? { ...file, selected: !file.selected } : file)));
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'success':
-                return '#A1D8B8';
-            case 'error':
-                return '#FF6E39';
-            default:
-                return '#9CA3AF';
-        }
-    };
-
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case 'success':
-                return 'EVSIS';
-            case 'error':
-                return '지원 외 형식';
-            default:
-                return '차지인';
-        }
-    };
-
     // 엑셀 헤더 검증 함수
     const validateExcelHeaders = (
         headers: string[]
@@ -961,7 +939,7 @@ const ExcelMerge = () => {
                 통합 정산하기
             </Typography>
             <Box sx={{ border: '2px solid #e0e0e0', borderRadius: 2, p: 3, mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography
                         variant="body1"
                         sx={{
@@ -1151,7 +1129,7 @@ const ExcelMerge = () => {
                                     </Box>
                                 }
                             >
-                                <IconButton
+                                <Button
                                     size="small"
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -1160,13 +1138,17 @@ const ExcelMerge = () => {
                                     }}
                                     sx={{
                                         color: '#666666',
+                                        border: '1px solid #A5A8AD',
+                                        borderRadius: '8px',
+                                        height: '35px',
+                                        width: '120px',
                                         '&:hover': {
                                             backgroundColor: 'rgba(0, 0, 0, 0.04)',
                                         },
                                     }}
                                 >
-                                    <HelpOutlineIcon fontSize="small" />
-                                </IconButton>
+                                    통합 가이드 안내
+                                </Button>
                             </Tooltip>
                         </div>
                     </ClickAwayListener>
@@ -1200,23 +1182,46 @@ const ExcelMerge = () => {
                                 bgcolor: '#F3F4F6',
                             },
                         }}
-                        onClick={() => fileInputRef.current?.click()}
+                        // 클릭 이벤트 제거
                     >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            style={{ display: 'none' }}
-                            onChange={handleFileSelect}
-                            multiple
-                            accept=".xlsx,.xls"
-                        />
                         <UploadFileIcon sx={{ fontSize: 40, color: '#9CA3AF', mb: 1, display: 'inline' }} />
                         <Typography sx={{ color: '#4B5563', mb: 0.5, display: 'inline', ml: 1 }}>
                             정리할 파일을 마우스로 끌어 놓으세요.
                         </Typography>
                         <Typography sx={{ color: '#9CA3AF', fontSize: '14px', display: 'block' }}>
-                            또는 박스를 클릭하여 파일을 선택하세요.
+                            또는 아래의 '파일 업로드' 버튼을 클릭 후 파일을 선택하여 업로드 해주세요.
                         </Typography>
+                        {/* 파일 업로드 버튼을 안내문구 아래에 배치 */}
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() => fileInputRef.current?.click()}
+                                sx={{
+                                    color: '#666666',
+                                    bgcolor: '#fff',
+                                    border: '1px solid #A5A8AD',
+                                    borderRadius: '8px',
+                                    height: '35px',
+                                    width: '120px',
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                        boxShadow: 'none',
+                                    },
+                                }}
+                            >
+                                파일 업로드
+                            </Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleFileSelect}
+                                multiple
+                                accept=".xlsx,.xls"
+                            />
+                        </Box>
                     </Box>
                 </Paper>
                 <Typography sx={{ fontSize: '18px', fontWeight: 600, mb: 2 }}>파일 업로드 목록</Typography>
@@ -1674,6 +1679,7 @@ const ExcelMerge = () => {
                             color: '#22675F',
                             '&:hover': {
                                 background: '#8bc9a6',
+                                boxShadow: 'none',
                             },
                         }}
                     >
