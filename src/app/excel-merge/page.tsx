@@ -1010,6 +1010,15 @@ const ExcelMerge = () => {
         setOpenConfirmDialog(false);
     };
 
+    const handleResetAllFiles = () => {
+        setFiles([]);
+        setExcelDataList([]);
+        setNormalizedData([]);
+        setRowData([]);
+        setFilteredRowData([]);
+        setUploadRowData([]);
+    };
+
     return (
         <Box sx={{ p: 3, maxWidth: '1200px', margin: '0 auto' }}>
             <Typography
@@ -1354,6 +1363,24 @@ const ExcelMerge = () => {
                             sx={{ ml: 2 }}
                         >
                             선택 삭제
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleResetAllFiles}
+                            disabled={
+                                files.length === 0 ||
+                                (files.length === 1 && !files[0].name && files[0].status === 'pending')
+                            }
+                            sx={{
+                                ml: 2,
+                                backgroundColor: 'white',
+                                border: '1px solid #e0e0e0',
+                                color: '#22675F',
+                                fontWeight: 600,
+                            }}
+                        >
+                            모든 파일 초기화
                         </Button>
                         <Button
                             variant="outlined"
