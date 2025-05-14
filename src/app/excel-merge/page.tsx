@@ -39,6 +39,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ko } from 'date-fns/locale/ko';
 import DeleteIcon from '@mui/icons-material/Delete';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import ModernConfirmDialog from '@/components/dialog/ModernConfirmDialog';
 
 interface ExcelFile {
     id: number;
@@ -294,7 +295,10 @@ const ExcelMerge = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
     const [filteredRowData, setFilteredRowData] = useState<RowData[]>([]);
+    const [uploadRowData, setUploadRowData] = useState<RowData[]>([]);
     const [selectedFileName, setSelectedFileName] = useState<string>('');
+    const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+
     // 컬럼 정의
     const columnDefs: ColDef[] = [
         {
@@ -650,7 +654,7 @@ const ExcelMerge = () => {
                 chargingAmountM: item['충전금액'] || '',
             }));
             setRowData(gridData);
-            setFilteredRowData(gridData); // 초기 필터링 데이터 설정
+            setUploadRowData(gridData); // 초기 필터링 데이터 설정
 
             // 빈 input 박스 추가
             if (files.length === 0) {
@@ -659,14 +663,14 @@ const ExcelMerge = () => {
         } else {
             setNormalizedData([]);
             setRowData([]);
-            setFilteredRowData([]); // 필터링 데이터 초기화
+            setUploadRowData([]); // 필터링 데이터 초기화
             // 데이터가 없을 때도 빈 input 박스 유지
         }
     }, [excelDataList]);
 
     const filterDataByDate = useCallback(() => {
         if (!startDate || !endDate || !rowData.length) {
-            setFilteredRowData(sortDataByChargingStartTime(rowData));
+            setUploadRowData(sortDataByChargingStartTime(rowData));
             return;
         }
 
@@ -676,7 +680,7 @@ const ExcelMerge = () => {
         });
 
         // 필터링된 데이터도 충전시작 시간으로 정렬
-        setFilteredRowData(sortDataByChargingStartTime(filtered));
+        setUploadRowData(sortDataByChargingStartTime(filtered));
     }, [startDate, endDate, rowData]);
 
     // 데이터를 충전시작시간 기준으로 정렬하는 함수
@@ -709,7 +713,7 @@ const ExcelMerge = () => {
     const handleClearFilter = () => {
         setStartDate(null);
         setEndDate(null);
-        setFilteredRowData(sortDataByChargingStartTime(rowData));
+        setUploadRowData(sortDataByChargingStartTime(rowData));
     };
 
     const handleApplyFilter = () => {
@@ -717,7 +721,7 @@ const ExcelMerge = () => {
     };
 
     useEffect(() => {
-        setFilteredRowData(sortDataByChargingStartTime(rowData));
+        setUploadRowData(sortDataByChargingStartTime(rowData));
     }, [rowData]);
 
     const downloadExcelForm = () => {
@@ -941,6 +945,69 @@ const ExcelMerge = () => {
         const selectedFileIds = files.filter((file) => file.selected).map((file) => file.id);
         setFiles((prevFiles) => prevFiles.filter((file) => !file.selected));
         setExcelDataList((prevDataList) => prevDataList.filter((data) => !selectedFileIds.includes(data.id)));
+    };
+
+    const handlePreviewData = () => {
+        const errorFilesExist = files.some((file) => file.status === 'error');
+
+        if (errorFilesExist) {
+            setOpenConfirmDialog(true);
+        } else {
+            const successfulFilesData = files
+                .filter((file) => file.status === 'success' && file.data && file.formType)
+                .map((file) => ({
+                    id: file.id,
+                    formType: file.formType!,
+                    data: file.data!,
+                }));
+
+            if (successfulFilesData.length > 0) {
+                const normalized = normalizeExcelData(successfulFilesData);
+                const gridData = normalized.map((item, index) => ({
+                    No: index + 1,
+                    id: item['충전기ID'] || `Row-${index + 1}`,
+                    chargingStartTime: item['충전시작'] || '',
+                    chargingEndTime: item['충전종료'] || '',
+                    chargingTime: item['충전시간'] || '',
+                    chargingAmount: item['충전량'] || '',
+                    chargingAmountM: item['충전금액'] || '',
+                }));
+                setFilteredRowData(gridData);
+            } else {
+                setFilteredRowData([]);
+            }
+        }
+    };
+
+    const handleConfirmDialogClose = () => {
+        setOpenConfirmDialog(false);
+    };
+
+    const handleConfirmDialogProceed = () => {
+        const successfulFilesData = files
+            .filter((file) => file.status === 'success' && file.data && file.formType)
+            .map((file) => ({
+                id: file.id,
+                formType: file.formType!,
+                data: file.data!,
+            }));
+
+        if (successfulFilesData.length > 0) {
+            const normalized = normalizeExcelData(successfulFilesData);
+            const gridData = normalized.map((item, index) => ({
+                No: index + 1,
+                id: item['충전기ID'] || `Row-${index + 1}`,
+                chargingStartTime: item['충전시작'] || '',
+                chargingEndTime: item['충전종료'] || '',
+                chargingTime: item['충전시간'] || '',
+                chargingAmount: item['충전량'] || '',
+                chargingAmountM: item['충전금액'] || '',
+            }));
+            setFilteredRowData(gridData);
+        } else {
+            setFilteredRowData([]);
+        }
+        setOpenConfirmDialog(false);
     };
 
     return (
@@ -1291,8 +1358,8 @@ const ExcelMerge = () => {
                         <Button
                             variant="outlined"
                             size="small"
-                            onClick={handleDeleteSelectedFiles}
-                            disabled={files.every((file) => !file.selected)}
+                            onClick={handlePreviewData}
+                            disabled={!files.some((file) => file.status === 'success')}
                             sx={{
                                 ml: 2,
                                 backgroundColor: 'white',
@@ -1789,6 +1856,21 @@ const ExcelMerge = () => {
                 gridOptions={gridOptions}
                 regularExcelForm={REGULAR_EXCEL_FORM_TYPES}
                 onDataTransform={handleTransformedData}
+            />
+            <ModernConfirmDialog
+                open={openConfirmDialog}
+                onClose={handleConfirmDialogClose}
+                onConfirm={handleConfirmDialogProceed}
+                title="알림"
+                contentText={
+                    <>
+                        지원 외 형식 파일이 있습니다.
+                        <br />
+                        데이터를 미리 보시겠습니까?
+                    </>
+                }
+                cancelText="취소"
+                confirmText="미리보기"
             />
         </Box>
     );
