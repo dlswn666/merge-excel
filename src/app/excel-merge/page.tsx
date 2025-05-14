@@ -49,7 +49,7 @@ interface ExcelFile {
     formName?: string;
     headerRow?: number;
     data?: any[];
-    selected?: boolean;
+    selected: boolean;
 }
 
 interface ExcelFormType {
@@ -357,6 +357,8 @@ const ExcelMerge = () => {
     const [excelUploadModalOpen, setExcelUploadModalOpen] = useState(false);
     const [openTutorial, setOpenTutorial] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
+    const [validFiles, setValidFiles] = useState<ExcelFile[]>([]);
+    const [invalidFiles, setInvalidFiles] = useState<ExcelFile[]>([]);
 
     // AG Grid 설정
     const gridOptions: GridOptions = {
@@ -557,6 +559,11 @@ const ExcelMerge = () => {
         }
     };
 
+    useEffect(() => {
+        setValidFiles(files.filter((file) => file.status === 'success'));
+        setInvalidFiles(files.filter((file) => file.status === 'error'));
+    }, [files]);
+
     // 모달 열기 함수 - 파일 ID를 받아서 해당 파일의 데이터를 모달로 전달
     const modifyModalOpen = (fileId: number) => {
         // 파일 ID로 해당 파일 찾기
@@ -647,7 +654,7 @@ const ExcelMerge = () => {
 
             // 빈 input 박스 추가
             if (files.length === 0) {
-                setFiles([{ id: Date.now(), name: '', status: 'pending' }]);
+                setFiles([{ id: Date.now(), name: '', status: 'pending', selected: false }]);
             }
         } else {
             setNormalizedData([]);
@@ -844,7 +851,7 @@ const ExcelMerge = () => {
         });
     };
 
-    // 드래그 앤 드롭 이벤트 핸들러
+    // 드래그 앤 드랍 이벤트 핸들러
     const handleDragEnter = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -893,9 +900,9 @@ const ExcelMerge = () => {
                 // 마지막 항목이 빈 항목이면 교체, 아니면 추가
                 const lastItem = prev[prev.length - 1];
                 if (lastItem && !lastItem.name) {
-                    return [...prev.slice(0, -1), { id: newId, name: file.name, status: 'pending' }];
+                    return [...prev.slice(0, -1), { id: newId, name: file.name, status: 'pending', selected: false }];
                 }
-                return [...prev, { id: newId, name: file.name, status: 'pending' }];
+                return [...prev, { id: newId, name: file.name, status: 'pending', selected: false }];
             });
 
             // 파일 검증을 위한 이벤트 객체 생성
@@ -920,8 +927,20 @@ const ExcelMerge = () => {
         }
     };
 
+    const handlePrevStep = () => {
+        if (currentStep > 0) {
+            setCurrentStep((prev) => prev - 1);
+        }
+    };
+
     const handleTutorialSkip = () => {
         setOpenTutorial(false);
+    };
+
+    const handleDeleteSelectedFiles = () => {
+        const selectedFileIds = files.filter((file) => file.selected).map((file) => file.id);
+        setFiles((prevFiles) => prevFiles.filter((file) => !file.selected));
+        setExcelDataList((prevDataList) => prevDataList.filter((data) => !selectedFileIds.includes(data.id)));
     };
 
     return (
@@ -1073,23 +1092,39 @@ const ExcelMerge = () => {
                                             }}
                                         >
                                             {currentStep === tutorialSteps.length - 1 ? (
-                                                <Button
-                                                    size="small"
-                                                    onClick={handleTutorialSkip}
-                                                    variant="contained"
-                                                    sx={{
-                                                        backgroundColor: '#6ED8AF',
-                                                        color: '#fff',
-                                                        fontWeight: 600,
-                                                        boxShadow: 'none',
-                                                        '&:hover': {
-                                                            backgroundColor: '#5BC39D',
+                                                <>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={handlePrevStep}
+                                                        sx={{
+                                                            color: '#22675F',
+                                                            bgcolor: '#fff',
+                                                            fontWeight: 600,
+                                                            '&:hover': {
+                                                                bgcolor: '#F3F4F6',
+                                                            },
+                                                        }}
+                                                    >
+                                                        Prev
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={handleTutorialSkip}
+                                                        variant="contained"
+                                                        sx={{
+                                                            backgroundColor: '#6ED8AF',
+                                                            color: '#fff',
+                                                            fontWeight: 600,
                                                             boxShadow: 'none',
-                                                        },
-                                                    }}
-                                                >
-                                                    Close
-                                                </Button>
+                                                            '&:hover': {
+                                                                backgroundColor: '#5BC39D',
+                                                                boxShadow: 'none',
+                                                            },
+                                                        }}
+                                                    >
+                                                        Close
+                                                    </Button>
+                                                </>
                                             ) : (
                                                 <>
                                                     <Button
@@ -1106,6 +1141,22 @@ const ExcelMerge = () => {
                                                     >
                                                         Skip
                                                     </Button>
+                                                    {currentStep > 0 && (
+                                                        <Button
+                                                            size="small"
+                                                            onClick={handlePrevStep}
+                                                            sx={{
+                                                                color: '#22675F',
+                                                                bgcolor: '#fff',
+                                                                fontWeight: 600,
+                                                                '&:hover': {
+                                                                    bgcolor: '#F3F4F6',
+                                                                },
+                                                            }}
+                                                        >
+                                                            Prev
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         size="small"
                                                         onClick={handleNextStep}
@@ -1177,19 +1228,14 @@ const ExcelMerge = () => {
                             p: 3,
                             textAlign: 'center',
                             bgcolor: 'transparent',
-                            cursor: 'pointer',
-                            '&:hover': {
-                                bgcolor: '#F3F4F6',
-                            },
                         }}
-                        // 클릭 이벤트 제거
                     >
                         <UploadFileIcon sx={{ fontSize: 40, color: '#9CA3AF', mb: 1, display: 'inline' }} />
                         <Typography sx={{ color: '#4B5563', mb: 0.5, display: 'inline', ml: 1 }}>
                             정리할 파일을 마우스로 끌어 놓으세요.
                         </Typography>
                         <Typography sx={{ color: '#9CA3AF', fontSize: '14px', display: 'block' }}>
-                            또는 아래의 '파일 업로드' 버튼을 클릭 후 파일을 선택하여 업로드 해주세요.
+                            또는 아래의 '파일 업로드' 버튼을 클릭하여 파일을 선택하세요.
                         </Typography>
                         {/* 파일 업로드 버튼을 안내문구 아래에 배치 */}
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
@@ -1198,16 +1244,16 @@ const ExcelMerge = () => {
                                 color="primary"
                                 onClick={() => fileInputRef.current?.click()}
                                 sx={{
-                                    color: '#666666',
-                                    bgcolor: '#fff',
-                                    border: '1px solid #A5A8AD',
-                                    borderRadius: '8px',
-                                    height: '35px',
-                                    width: '120px',
+                                    height: 40,
+                                    minWidth: 120,
+                                    borderRadius: 2,
+                                    background: '#A1D8B8',
+                                    border: '1px solid #e0e0e0',
                                     boxShadow: 'none',
+                                    color: '#22675F',
+                                    fontWeight: 600,
                                     '&:hover': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                        boxShadow: 'none',
+                                        background: '#8bc9a6',
                                     },
                                 }}
                             >
@@ -1224,7 +1270,41 @@ const ExcelMerge = () => {
                         </Box>
                     </Box>
                 </Paper>
-                <Typography sx={{ fontSize: '18px', fontWeight: 600, mb: 2 }}>파일 업로드 목록</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600 }}>
+                        파일 업로드 목록{' '}
+                        <span style={{ fontSize: '14px', fontWeight: 400, color: '#666' }}>
+                            {files.length ? `(정상: ${validFiles.length}, 지원 외: ${invalidFiles.length})` : ''}
+                        </span>
+                    </Typography>
+                    <Box>
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={handleDeleteSelectedFiles}
+                            disabled={files.every((file) => !file.selected)}
+                            sx={{ ml: 2 }}
+                        >
+                            선택 삭제
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleDeleteSelectedFiles}
+                            disabled={files.every((file) => !file.selected)}
+                            sx={{
+                                ml: 2,
+                                backgroundColor: 'white',
+                                border: '1px solid #e0e0e0',
+                                color: '#22675F',
+                                fontWeight: 600,
+                            }}
+                        >
+                            데이터 미리보기
+                        </Button>
+                    </Box>
+                </Box>
                 <Paper sx={{ p: 3, border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                     <TableContainer>
                         <Table>
@@ -1233,6 +1313,12 @@ const ExcelMerge = () => {
                                     <TableCell padding="checkbox" sx={{ borderBottom: '1px solid #E5E7EB' }}>
                                         <Checkbox
                                             size="small"
+                                            checked={files.length > 0 && files.every((file) => file.selected)}
+                                            indeterminate={
+                                                files.length > 0 &&
+                                                files.some((file) => file.selected) &&
+                                                !files.every((f) => f.selected)
+                                            }
                                             onChange={(e) => {
                                                 setFiles((prev) =>
                                                     prev.map((file) => ({
