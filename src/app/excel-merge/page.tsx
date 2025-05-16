@@ -18,7 +18,6 @@ import {
     TableHead,
     TableRow,
     Tooltip,
-    ClickAwayListener,
 } from '@mui/material';
 import { ColDef, GridReadyEvent, IGetRowsParams, GridOptions, RowModelType, GridApi } from 'ag-grid-community';
 import CustomAgGrid from '@/components/grid/agGrid';
@@ -32,7 +31,6 @@ import ExcelMergeModal from '@/app/modal/excel-merge/modal';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -75,13 +73,6 @@ interface ExcelData {
 interface RowData {
     chargingStartTime: string;
     [key: string]: any;
-}
-
-interface TutorialStep {
-    title: string;
-    description: string;
-    placement: 'top' | 'bottom' | 'left' | 'right';
-    image: string;
 }
 
 // 엑셀 폼 형식 정의
@@ -247,39 +238,6 @@ function calculateColumnWidths(normalizedData: any[], headers: RegularExcelFormT
     });
 }
 
-const tutorialSteps: TutorialStep[] = [
-    {
-        title: '엑셀 파일 업로드',
-        description: '각 충전소의 정산 엑셀 파일을 업로드하면 자동으로 데이터를 병합해드립니다. ',
-        placement: 'bottom',
-        image: '/images/tutorial/tooltip1.png',
-    },
-    {
-        title: '파일 검증',
-        description: '각 충전소의 정산 엑셀 파일을 업로드하면 자동으로 데이터를 병합해드립니다. ',
-        placement: 'bottom',
-        image: '/images/tutorial/tooltip2.png',
-    },
-    {
-        title: '수동 정렬',
-        description: '양식이 등록되지 않은 경우 오류가 발생할 수 있습니다.',
-        placement: 'bottom',
-        image: '/images/tutorial/tooltip3.png',
-    },
-    {
-        title: '데이터 통합',
-        description: '오류시 수동정렬을 통해 데이터 병합을 할 수 있습니다.(미등록 양식 오류일 경우에만 해당)',
-        placement: 'bottom',
-        image: '/images/tutorial/tooltip4.png',
-    },
-    {
-        title: '다운로드',
-        description: '병합된 데이터를 날짜별로 조회할 수 있으며 다운로드 할 수 있습니다.',
-        placement: 'bottom',
-        image: '/images/tutorial/tooltip5.png',
-    },
-];
-
 const ExcelMerge = () => {
     const [files, setFiles] = useState<ExcelFile[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -359,8 +317,6 @@ const ExcelMerge = () => {
     ];
 
     const [excelUploadModalOpen, setExcelUploadModalOpen] = useState(false);
-    const [openTutorial, setOpenTutorial] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0);
     const [validFiles, setValidFiles] = useState<ExcelFile[]>([]);
     const [invalidFiles, setInvalidFiles] = useState<ExcelFile[]>([]);
 
@@ -378,13 +334,55 @@ const ExcelMerge = () => {
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files).map((file, index) => ({
-                id: Date.now() + index,
-                name: file.name,
-                status: 'pending' as const,
-                selected: false,
-            }));
-            setFiles((prev) => [...prev, ...newFiles]);
+            const selectedFiles = Array.from(e.target.files);
+
+            // 파일 확장자로 엑셀 파일 확인
+            const validExcelFiles = selectedFiles.filter((file) => {
+                const fileName = file.name.toLowerCase();
+                return fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+            });
+
+            if (validExcelFiles.length === 0) {
+                alert('엑셀 파일만 업로드 가능합니다.');
+                // 파일 선택 초기화
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
+            }
+
+            // 각 파일에 대해 validateFile 함수 실행
+            for (let i = 0; i < validExcelFiles.length; i++) {
+                const file = validExcelFiles[i];
+                const newId = Date.now() + i;
+
+                // 새로운 파일 항목 추가 (기존 항목 유지)
+                setFiles((prev) => {
+                    // 마지막 항목이 빈 항목이면 교체, 아니면 추가
+                    const lastItem = prev[prev.length - 1];
+                    if (lastItem && !lastItem.name) {
+                        return [
+                            ...prev.slice(0, -1),
+                            { id: newId, name: file.name, status: 'pending', selected: false },
+                        ];
+                    }
+                    return [...prev, { id: newId, name: file.name, status: 'pending', selected: false }];
+                });
+
+                // 파일 검증을 위한 이벤트 객체 생성
+                // const event = {
+                //     target: {
+                //         files: [file],
+                //     },
+                // } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+                // await validateFile(newId, event);
+                await validateFile(newId, file); // File 객체를 직접 전달
+            }
+            // 파일 선택 초기화
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -421,8 +419,8 @@ const ExcelMerge = () => {
         };
     };
 
-    const validateFile = async (id: number, event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const validateFile = async (id: number, uploadedFile: File) => {
+        const file = uploadedFile;
         if (!file) return;
 
         const headerRows = EXCEL_FORM_TYPES.map((form) => form.headerRow).filter(
@@ -879,10 +877,10 @@ const ExcelMerge = () => {
         e.stopPropagation();
         setIsDragging(false);
 
-        const files = Array.from(e.dataTransfer.files);
+        const filesFromDrop = Array.from(e.dataTransfer.files);
 
         // 파일 확장자로 엑셀 파일 확인
-        const validExcelFiles = files.filter((file) => {
+        const validExcelFiles = filesFromDrop.filter((file) => {
             const fileName = file.name.toLowerCase();
             return fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
         });
@@ -892,7 +890,8 @@ const ExcelMerge = () => {
             return;
         }
 
-        setDragFiles(validExcelFiles);
+        // 드래그된 파일 목록 상태 업데이트 (setDragFiles는 현재 코드에서 사용되지 않는 것으로 보임. 필요시 유지)
+        // setDragFiles(validExcelFiles);
 
         // 각 파일에 대해 validateFile 함수 실행
         for (let i = 0; i < validExcelFiles.length; i++) {
@@ -909,36 +908,8 @@ const ExcelMerge = () => {
                 return [...prev, { id: newId, name: file.name, status: 'pending', selected: false }];
             });
 
-            // 파일 검증을 위한 이벤트 객체 생성
-            const event = {
-                target: {
-                    files: [file],
-                },
-            } as unknown as React.ChangeEvent<HTMLInputElement>;
-
-            await validateFile(newId, event);
+            await validateFile(newId, file); // File 객체를 직접 전달
         }
-    };
-
-    const handleTutorialOpen = () => {
-        setOpenTutorial(true);
-        setCurrentStep(0);
-    };
-
-    const handleNextStep = () => {
-        if (currentStep < tutorialSteps.length - 1) {
-            setCurrentStep((prev) => prev + 1);
-        }
-    };
-
-    const handlePrevStep = () => {
-        if (currentStep > 0) {
-            setCurrentStep((prev) => prev - 1);
-        }
-    };
-
-    const handleTutorialSkip = () => {
-        setOpenTutorial(false);
     };
 
     const handleDeleteSelectedFiles = () => {
@@ -1043,242 +1014,24 @@ const ExcelMerge = () => {
                     >
                         엑셀 파일을 업로드하여 데이터를 한눈에 정리하세요
                     </Typography>
-                    <ClickAwayListener onClickAway={handleTutorialSkip}>
-                        <div>
-                            <Tooltip
-                                open={openTutorial}
-                                onClose={(e) => {
-                                    e?.stopPropagation();
-                                    e?.preventDefault();
-                                }}
-                                placement="right-start"
-                                disableFocusListener
-                                disableHoverListener
-                                disableTouchListener
-                                componentsProps={{
-                                    tooltip: {
-                                        sx: {
-                                            bgcolor: '#A1D8B8',
-                                            maxWidth: 'none',
-                                            p: 0,
-                                            borderRadius: '16px',
-                                            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-                                            marginTop: '-85px',
-                                            '& .MuiTooltip-arrow': {
-                                                color: '#A1D8B8',
-                                                top: '10% !important',
-                                                left: '0 !important',
-                                            },
-                                        },
-                                    },
-                                    arrow: {
-                                        sx: {
-                                            color: '#A1D8B8',
-                                            position: 'absolute',
-                                            top: '20%',
-                                            left: 0,
-                                        },
-                                    },
-                                }}
-                                arrow
-                                title={
-                                    <Box
-                                        sx={{
-                                            position: 'relative',
-                                            width: 500,
-                                            p: 0,
-                                            minHeight: 450,
-                                            bgcolor: '#A1D8B8',
-                                            borderRadius: '16px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                        }}
-                                    >
-                                        <IconButton
-                                            onClick={handleTutorialSkip}
-                                            sx={{
-                                                position: 'absolute',
-                                                right: 8,
-                                                top: 8,
-                                                color: '#666666',
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            <ClearIcon fontSize="small" sx={{ color: '#22675F' }} />
-                                        </IconButton>
-
-                                        <Box sx={{ flex: 1, overflow: 'auto' }}>
-                                            <Box sx={{ display: 'flex', gap: 1, p: 2, pb: 1 }}>
-                                                {tutorialSteps.map((_, index) => (
-                                                    <Box
-                                                        key={index}
-                                                        sx={{
-                                                            width: 8,
-                                                            height: 8,
-                                                            borderRadius: '50%',
-                                                            backgroundColor:
-                                                                index === currentStep ? '#6ED8AF' : '#E5E7EB',
-                                                        }}
-                                                    />
-                                                ))}
-                                            </Box>
-                                            <Box sx={{ p: 3, pt: 0 }}>
-                                                <Box
-                                                    sx={{
-                                                        width: '100%',
-                                                        height: 200,
-                                                        mb: 2,
-                                                        mt: 3,
-                                                        borderRadius: 2,
-                                                        overflow: 'hidden',
-                                                        '& img': {
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            objectFit: 'cover',
-                                                        },
-                                                    }}
-                                                >
-                                                    <img
-                                                        src={tutorialSteps[currentStep].image}
-                                                        alt={tutorialSteps[currentStep].title}
-                                                    />
-                                                </Box>
-                                                <Typography
-                                                    variant="subtitle1"
-                                                    sx={{ fontWeight: 600, mb: 1, color: '#074B33' }}
-                                                >
-                                                    {tutorialSteps[currentStep].title}
-                                                </Typography>
-                                                <Typography variant="body2" sx={{ mb: 2, color: '#074B33' }}>
-                                                    {tutorialSteps[currentStep].description}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-
-                                        <Box
-                                            sx={{
-                                                display: 'flex',
-                                                justifyContent: 'flex-end',
-                                                gap: 1,
-                                                p: 2,
-                                            }}
-                                        >
-                                            {currentStep === tutorialSteps.length - 1 ? (
-                                                <>
-                                                    <Button
-                                                        size="small"
-                                                        onClick={handlePrevStep}
-                                                        sx={{
-                                                            color: '#22675F',
-                                                            bgcolor: '#fff',
-                                                            fontWeight: 600,
-                                                            '&:hover': {
-                                                                bgcolor: '#F3F4F6',
-                                                            },
-                                                        }}
-                                                    >
-                                                        Prev
-                                                    </Button>
-                                                    <Button
-                                                        size="small"
-                                                        onClick={handleTutorialSkip}
-                                                        variant="contained"
-                                                        sx={{
-                                                            backgroundColor: '#6ED8AF',
-                                                            color: '#fff',
-                                                            fontWeight: 600,
-                                                            boxShadow: 'none',
-                                                            '&:hover': {
-                                                                backgroundColor: '#5BC39D',
-                                                                boxShadow: 'none',
-                                                            },
-                                                        }}
-                                                    >
-                                                        Close
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Button
-                                                        size="small"
-                                                        onClick={handleTutorialSkip}
-                                                        sx={{
-                                                            color: '#22675F',
-                                                            bgcolor: '#fff',
-                                                            fontWeight: 600,
-                                                            '&:hover': {
-                                                                bgcolor: '#F3F4F6',
-                                                            },
-                                                        }}
-                                                    >
-                                                        Skip
-                                                    </Button>
-                                                    {currentStep > 0 && (
-                                                        <Button
-                                                            size="small"
-                                                            onClick={handlePrevStep}
-                                                            sx={{
-                                                                color: '#22675F',
-                                                                bgcolor: '#fff',
-                                                                fontWeight: 600,
-                                                                '&:hover': {
-                                                                    bgcolor: '#F3F4F6',
-                                                                },
-                                                            }}
-                                                        >
-                                                            Prev
-                                                        </Button>
-                                                    )}
-                                                    <Button
-                                                        size="small"
-                                                        onClick={handleNextStep}
-                                                        variant="contained"
-                                                        sx={{
-                                                            backgroundColor: '#6ED8AF',
-                                                            color: '#fff',
-                                                            boxShadow: 'none',
-                                                            fontWeight: 600,
-                                                            '&:hover': {
-                                                                backgroundColor: '#5BC39D',
-                                                                boxShadow: 'none',
-                                                            },
-                                                        }}
-                                                    >
-                                                        Next
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </Box>
-                                    </Box>
-                                }
-                            >
-                                <Button
-                                    size="small"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleTutorialOpen();
-                                    }}
-                                    sx={{
-                                        color: '#666666',
-                                        border: '1px solid #A5A8AD',
-                                        borderRadius: '8px',
-                                        height: '35px',
-                                        width: '120px',
-                                        '&:hover': {
-                                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                        },
-                                    }}
-                                >
-                                    통합 가이드 안내
-                                </Button>
-                            </Tooltip>
-                        </div>
-                    </ClickAwayListener>
+                    <Button
+                        size="small"
+                        onClick={() => {
+                            window.open('/guide', '_blank');
+                        }}
+                        sx={{
+                            color: '#666666',
+                            border: '1px solid #A5A8AD',
+                            borderRadius: '8px',
+                            height: '35px',
+                            width: '120px',
+                            '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                            },
+                        }}
+                    >
+                        통합 가이드 안내
+                    </Button>
                 </Box>
             </Box>
             <Box>
