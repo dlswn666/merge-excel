@@ -11,10 +11,7 @@ export default function GuidePage() {
             sx={{
                 py: { xs: 3, sm: 4, md: 5 },
                 backgroundColor: '#ffffff',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                mt: { xs: 2, sm: 3, md: 4 },
-                mb: { xs: 2, sm: 3, md: 4 },
+                mt: -10,
             }}
         >
             <Box sx={{ textAlign: 'left', mb: 4 }}>
